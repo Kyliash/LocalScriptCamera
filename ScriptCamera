@@ -87,6 +87,7 @@ end)
 minDistanceIncreaseButton.MouseButton1Click:Connect(function()
 	minDistanceThreshold = minDistanceThreshold + 1
 	minDistanceLabel.Text = "Min Distance: " .. minDistanceThreshold
+	minDistanceLabel.Text = "Min Distance: " .. minDistanceThreshold
 end)
 
 -- Create frame for maxHeightDifference buttons
@@ -108,13 +109,18 @@ maxHeightDecreaseButton.Position = UDim2.new(0, 0, 0.5, 0)
 maxHeightDecreaseButton.Text = "-"
 maxHeightDecreaseButton.Parent = maxHeightFrame
 
+-- Create button to increase maxHeightDifference
+local maxHeightIncreaseButton = Instance.new("TextButton")
+maxHeightIncreaseButton.Size = UDim2.new(0.5, 0, 0.5, 0)
+maxHeightIncreaseButton.Position = UDim2.new(0.5, 0, 0.5, 0)
+maxHeightIncreaseButton.Text = "+"
+maxHeightIncreaseButton.Parent = maxHeightFrame
+
 -- Connect button events to update maxHeightDifference value
 maxHeightDecreaseButton.MouseButton1Click:Connect(function()
 	maxHeightDifference = math.max(1, maxHeightDifference - 1)
 	maxHeightLabel.Text = "Max Height: " .. maxHeightDifference
 end)
-
-print("maxHeightIncreaseButton:", maxHeightIncreaseButton)
 
 maxHeightIncreaseButton.MouseButton1Click:Connect(function()
 	maxHeightDifference = maxHeightDifference + 1
@@ -149,7 +155,7 @@ local function updateCamera()
 	camera.CameraType = Enum.CameraType.Scriptable
 
 	if invisiblePart then
-		targetCameraPos = invisiblePart.CFrame * CFrame.new(0, 2, maxDistanceThreshold).p
+		targetCameraPos = invisiblePart.CFrame * CFrame.new(0, 2,2, maxDistanceThreshold).p
 
 		local midPoint = (invisiblePart.Position + secondTarget.Position) / 2 
 		camera.CFrame = camera.CFrame:Lerp(CFrame.new(targetCameraPos, midPoint), lerpAmount)
@@ -260,3 +266,4 @@ game:GetService("UserInputService").InputBegan:Connect(function(inputObject)
 		doubleClickCount = 0 
 	end
 end)
+
