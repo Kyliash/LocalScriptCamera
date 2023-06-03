@@ -1,0 +1,262 @@
+local camera = game.Workspace.CurrentCamera
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local maxDistanceThreshold = 15
+local minDistanceThreshold = 12
+local maxHeightDifference = 5
+local lastClickTime = 0
+local doubleClickThreshold = 0.5
+local doubleClickCount = 0
+local lerpAmount = 0.03
+local targetCameraPos = camera.CFrame.p
+
+-- Create GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player.PlayerGui
+
+-- Create frame for maxDistanceThreshold buttons
+local maxDistanceFrame = Instance.new("Frame")
+maxDistanceFrame.Size = UDim2.new(0, 100, 0, 50)
+maxDistanceFrame.Position = UDim2.new(0, 10, 0, 10)
+maxDistanceFrame.Parent = screenGui
+
+-- Create label for maxDistanceThreshold
+local maxDistanceLabel = Instance.new("TextLabel")
+maxDistanceLabel.Size = UDim2.new(1, 0, 0.5, 0)
+maxDistanceLabel.Text = "Max Distance: " .. maxDistanceThreshold
+maxDistanceLabel.Parent = maxDistanceFrame
+
+-- Create button to decrease maxDistanceThreshold
+local maxDistanceDecreaseButton = Instance.new("TextButton")
+maxDistanceDecreaseButton.Size = UDim2.new(0.5, 0, 0.5, 0)
+maxDistanceDecreaseButton.Position = UDim2.new(0, 0, 0.5, 0)
+maxDistanceDecreaseButton.Text = "-"
+maxDistanceDecreaseButton.Parent = maxDistanceFrame
+
+-- Create button to increase maxDistanceThreshold
+local maxDistanceIncreaseButton = Instance.new("TextButton")
+maxDistanceIncreaseButton.Size = UDim2.new(0.5, 0, 0.5, 0)
+maxDistanceIncreaseButton.Position = UDim2.new(0.5, 0, 0.5, 0)
+maxDistanceIncreaseButton.Text = "+"
+maxDistanceIncreaseButton.Parent = maxDistanceFrame
+
+-- Connect button events to update maxDistanceThreshold value
+maxDistanceDecreaseButton.MouseButton1Click:Connect(function()
+	maxDistanceThreshold = math.max(1, maxDistanceThreshold - 1)
+	maxDistanceLabel.Text = "Max Distance: " .. maxDistanceThreshold
+end)
+
+maxDistanceIncreaseButton.MouseButton1Click:Connect(function()
+	maxDistanceThreshold = maxDistanceThreshold + 1
+	maxDistanceLabel.Text = "Max Distance: " .. maxDistanceThreshold
+end)
+
+-- Create frame for minDistanceThreshold buttons
+local minDistanceFrame = Instance.new("Frame")
+minDistanceFrame.Size = UDim2.new(0, 100, 0, 50)
+minDistanceFrame.Position = UDim2.new(0, 10, 0, 70)
+minDistanceFrame.Parent = screenGui
+
+-- Create label for minDistanceThreshold
+local minDistanceLabel = Instance.new("TextLabel")
+minDistanceLabel.Size = UDim2.new(1, 0, 0.5, 0)
+minDistanceLabel.Text = "Min Distance: " .. minDistanceThreshold
+minDistanceLabel.Parent = minDistanceFrame
+
+-- Create button to decrease minDistanceThreshold
+local minDistanceDecreaseButton = Instance.new("TextButton")
+minDistanceDecreaseButton.Size = UDim2.new(0.5, 0, 0.5, 0)
+minDistanceDecreaseButton.Position = UDim2.new(0, 0, 0.5, 0)
+minDistanceDecreaseButton.Text = "-"
+minDistanceDecreaseButton.Parent = minDistanceFrame
+
+-- Create button to increase minDistanceThreshold
+local minDistanceIncreaseButton = Instance.new("TextButton")
+minDistanceIncreaseButton.Size = UDim2.new(0.5, 0, 0.5, 0)
+minDistanceIncreaseButton.Position = UDim2.new(0.5, 0, 0.5, 0)
+minDistanceIncreaseButton.Text = "+"
+minDistanceIncreaseButton.Parent = minDistanceFrame
+
+-- Connect button events to update minDistanceThreshold value
+minDistanceDecreaseButton.MouseButton1Click:Connect(function()
+	minDistanceThreshold = math.max(1, minDistanceThreshold - 1)
+	minDistanceLabel.Text = "Min Distance: " .. minDistanceThreshold
+end)
+
+minDistanceIncreaseButton.MouseButton1Click:Connect(function()
+	minDistanceThreshold = minDistanceThreshold + 1
+	minDistanceLabel.Text = "Min Distance: " .. minDistanceThreshold
+end)
+
+-- Create frame for maxHeightDifference buttons
+local maxHeightFrame = Instance.new("Frame")
+maxHeightFrame.Size = UDim2.new(0, 100, 0, 50)
+maxHeightFrame.Position = UDim2.new(0, 10, 0, 130)
+maxHeightFrame.Parent = screenGui
+
+-- Create label for maxHeightDifference
+local maxHeightLabel = Instance.new("TextLabel")
+maxHeightLabel.Size = UDim2.new(1, 0, 0.5, 0)
+maxHeightLabel.Text = "Max Height: " .. maxHeightDifference
+maxHeightLabel.Parent = maxHeightFrame
+
+-- Create button to decrease maxHeightDifference
+local maxHeightDecreaseButton = Instance.new("TextButton")
+maxHeightDecreaseButton.Size = UDim2.new(0.5, 0, 0.5, 0)
+maxHeightDecreaseButton.Position = UDim2.new(0, 0, 0.5, 0)
+maxHeightDecreaseButton.Text = "-"
+maxHeightDecreaseButton.Parent = maxHeightFrame
+
+-- Connect button events to update maxHeightDifference value
+maxHeightDecreaseButton.MouseButton1Click:Connect(function()
+	maxHeightDifference = math.max(1, maxHeightDifference - 1)
+	maxHeightLabel.Text = "Max Height: " .. maxHeightDifference
+end)
+
+print("maxHeightIncreaseButton:", maxHeightIncreaseButton)
+
+maxHeightIncreaseButton.MouseButton1Click:Connect(function()
+	maxHeightDifference = maxHeightDifference + 1
+	maxHeightLabel.Text = "Max Height: " .. maxHeightDifference
+end)
+
+local function findClosestPart()
+	local closestPart = nil
+	local closestDistance = math.huge
+	for _, part in pairs(game.Workspace:GetDescendants()) do
+		if part:IsA("Part") and part.Parent ~= character then
+			local partDistance = (part.Position - humanoidRootPart.Position).Magnitude
+			if partDistance < closestDistance then
+				closestPart = part
+				closestDistance = partDistance
+			end
+		end
+	end
+	return closestPart, closestDistance
+end
+
+local invisiblePart
+local secondTarget = nil
+
+local function updateInvisiblePartPosition()
+	if invisiblePart and secondTarget then
+		invisiblePart.Position = (secondTarget.Position + humanoidRootPart.Position) / 2
+	end
+end
+
+local function updateCamera()
+	camera.CameraType = Enum.CameraType.Scriptable
+
+	if invisiblePart then
+		targetCameraPos = invisiblePart.CFrame * CFrame.new(0, 2, maxDistanceThreshold).p
+
+		local midPoint = (invisiblePart.Position + secondTarget.Position) / 2 
+		camera.CFrame = camera.CFrame:Lerp(CFrame.new(targetCameraPos, midPoint), lerpAmount)
+
+		local distanceBetweenPlayerAndCamera = (invisiblePart.Position - camera.CFrame.p).Magnitude
+
+		if distanceBetweenPlayerAndCamera > maxDistanceThreshold then
+			camera.CFrame = camera.CFrame:Lerp(CFrame.new(targetCameraPos, midPoint), lerpAmount)
+		elseif distanceBetweenPlayerAndCamera < minDistanceThreshold then
+			local direction = (camera.CFrame.p - invisiblePart.Position).Unit
+			local newPosition = invisiblePart.Position + direction * minDistanceThreshold
+
+			camera.CFrame = CFrame.new(newPosition, midPoint)
+		end
+
+		local heightDifference = camera.CFrame.p.Y - invisiblePart.Position.Y
+
+		if heightDifference > maxHeightDifference then
+			local newPosition = Vector3.new(camera.CFrame.p.X, invisiblePart.Position.Y + maxHeightDifference, camera.CFrame.p.Z)
+			camera.CFrame = CFrame.new(newPosition, midPoint)
+		end
+
+		-- Check if targets are within screen bounds
+		local playerPos = camera:WorldToViewportPoint(humanoidRootPart.Position)
+		local targetPos = camera:WorldToViewportPoint(secondTarget.Position)
+
+		local viewportSize = camera.ViewportSize
+
+		if playerPos.X < 0 or playerPos.X > viewportSize.X or targetPos.X < 0 or targetPos.X > viewportSize.X or playerPos.Y < 0 or playerPos.Y > viewportSize.Y or targetPos.Y < 0 or targetPos.Y > viewportSize.Y then
+
+			local directionX= (playerPos.X<targetPos.X) and 1 or -1
+
+			local directionY= (playerPos.Y<targetPos.Y) and 1 or -1
+
+			camera.CFrame=camera.CFrame*CFrame.new(directionX*2,directionY*2,0)
+
+		end
+
+	else    
+		targetCameraPos=humanoidRootPart.CFrame*CFrame.new(0,2,maxDistanceThreshold).p
+
+		camera.CFrame=camera.CFrame:Lerp(CFrame.new(targetCameraPos,humanoidRootPart.Position),lerpAmount)
+
+		local distanceBetweenPlayerAndCamera=(humanoidRootPart.Position-camera.CFrame.p).Magnitude
+
+		if distanceBetweenPlayerAndCamera>maxDistanceThreshold then
+
+			camera.CFrame=camera.CFrame:Lerp(CFrame.new(targetCameraPos,humanoidRootPart.Position),lerpAmount)
+
+		elseif distanceBetweenPlayerAndCamera<minDistanceThreshold then
+
+			local direction=(camera.CFrame.p-humanoidRootPart.Position).Unit
+
+			local newPosition=humanoidRootPart.Position+direction*minDistanceThreshold
+
+			camera.CFrame = CFrame.new(newPosition, humanoidRootPart.Position)
+		end
+
+		local heightDifference = camera.CFrame.p.Y - humanoidRootPart.Position.Y
+
+		if heightDifference > maxHeightDifference then
+			local newPosition = Vector3.new(camera.CFrame.p.X, humanoidRootPart.Position.Y + maxHeightDifference, camera.CFrame.p.Z)
+			camera.CFrame = CFrame.new(newPosition, humanoidRootPart.Position)
+		end
+	end
+end
+
+game:GetService("RunService").RenderStepped:Connect(updateInvisiblePartPosition)
+game:GetService("RunService").RenderStepped:Connect(updateCamera)
+
+game:GetService("UserInputService").InputBegan:Connect(function(inputObject)
+	if inputObject.UserInputType == Enum.UserInputType.MouseButton2 then
+		print("Right mouse button clicked")
+		local currentTime = tick()
+		if currentTime - lastClickTime < doubleClickThreshold then
+			doubleClickCount += 1
+			print("Double-click count:", doubleClickCount)
+			if doubleClickCount == 2 then
+				local closestPart, closestDistance = findClosestPart()
+				if closestPart then
+					secondTarget = closestPart
+				end
+				if invisiblePart then
+					invisiblePart:Destroy()
+					invisiblePart = nil 
+					doubleClickCount = 0 
+				else
+					invisiblePart = Instance.new("Part")
+					invisiblePart.Transparency = 0.5 
+					invisiblePart.CanCollide = false 
+					invisiblePart.Anchored = true 
+					if closestPart then 
+						invisiblePart.Position = (closestPart.Position + humanoidRootPart.Position) / 2
+					else
+						invisiblePart.Position = humanoidRootPart.Position + Vector3.new(0, 5, 0)
+					end
+					invisiblePart.Parent = game.Workspace
+					doubleClickCount = 0
+				end
+			end
+		else
+			doubleClickCount = 1 
+		end
+		lastClickTime = currentTime
+	elseif inputObject.KeyCode == Enum.KeyCode.Escape and invisiblePart then
+		invisiblePart:Destroy()
+		invisiblePart = nil 
+		doubleClickCount = 0 
+	end
+end)
